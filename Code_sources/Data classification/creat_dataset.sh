@@ -1,6 +1,7 @@
 #!/bin/bash
 DATA_ROOT="DATASET"
-ln -s $DATA_ROOT/resized/merge results/resized
+mkdir $DATA_ROOT/resized
+mkdir $DATA_ROOT/resized/merge
 for dir in cartegrise cni passeport permis;
   do
     echo Resize of directory: $dir ;
@@ -32,7 +33,9 @@ for dir in cartegrise cni passeport permis;
 mkdir $DATA_ROOT/resized/merge/1
 mkdir $DATA_ROOT/resized/merge/2
 mkdir $DATA_ROOT/resized/merge/3
+mkdir $DATA_ROOT/resized/merge/4
 cp $DATA_ROOT/resized/cni/1/* $DATA_ROOT/resized/merge/1/
 cp $DATA_ROOT/resized/ca*/2/* $DATA_ROOT/resized/merge/2/
 cp $DATA_ROOT/resized/pa*/3/* $DATA_ROOT/resized/merge/3/
 cp $DATA_ROOT/resized/pe*/4/* $DATA_ROOT/resized/merge/4/
+ln -s $DATA_ROOT/resized/merge results/resized
