@@ -4,8 +4,19 @@ import math
 import cv2
 import numpy as numpy
 import imutils
+import glob
 
 from shutil import copyfile
+IMAGES_FOLDER="a"
+def read_folder(fo):
+    ls=[]
+    for dirpath, dirnames, filenames in os.walk(fo):
+        for fp in filenames:
+            ls.append(fp)
+    return ls
+
+print read_folder(a)
+
 
 def copy_file(file_input, file_output):
     copyfile(file_input, file_output)
@@ -27,8 +38,6 @@ def rotate_xml(filename, Alpha, w,h):
     Alpha=math.radians(Alpha)
     tree = ET.parse(filename)
     objects = []
-
-
     for st in tree.findall('size'):
         w=int(st.find("width").text) -1
         h=int(st.find("height").text) -1
@@ -82,8 +91,8 @@ def rotate_xml(filename, Alpha, w,h):
         tree.write(filename)
 
 
-file_image="test3.png"
-rotate_file_image(file_image, -2)
+#file_image="test3.png"
+#rotate_file_image(file_image, -2)
 
 
 #rotate_xml("test2.xml", 5)

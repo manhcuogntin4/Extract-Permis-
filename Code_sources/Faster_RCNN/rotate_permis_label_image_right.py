@@ -4,8 +4,26 @@ import math
 import cv2
 import numpy as numpy
 import imutils
-
+import os
+import glob
 from shutil import copyfile
+
+
+IMAGES_FOLDER="a/"
+def read_folder(fo):
+    ls=[]
+    for dirpath, dirnames, filenames in os.walk(fo):
+        for fp in filenames:
+            ls.append(fp)
+    return ls
+
+def readFileImages(strFolderName):
+    print strFolderName
+    image_list = []
+    st=strFolderName+"*.png"
+    for filename in glob.glob(st): #assuming gif
+        image_list.append(filename)
+    return image_list
 
 def copy_file(file_input, file_output):
     copyfile(file_input, file_output)
@@ -14,10 +32,13 @@ def rotate_file_image(filename, Alpha):
     img=cv2.imread(filename,1)
     dst=imutils.rotate_bound(img,Alpha)
     w_n,h_n,d_n=dst.shape
-    file_rotate_image=str(Alpha)+filename
+    dirname= os.path.dirname(filename)
+    filename=os.path.basename(filename)
+    file_rotate_image=os.path.join(dirname, str(Alpha)+filename)
     Alpha=-1*Alpha
     cv2.imwrite(file_rotate_image,dst)
-    file_annotate=filename.replace("png", "xml")
+
+    file_annotate=os.path.join(dirname, filename).replace("png", "xml")
     file_annotate_rotate=file_rotate_image.replace("png", "xml")
     copy_file(file_annotate,file_annotate_rotate)
     rotate_xml(file_annotate_rotate, Alpha,w_n, h_n)
@@ -33,8 +54,9 @@ def rotate_xml(filename, Alpha, w,h):
         w=int(st.find("width").text) -1
         h=int(st.find("height").text) -1
         print w, h
-        h_n=int(w*math.sin(Alpha) + h*math.cos(Alpha))
-        w_n=int(h*math.sin(Alpha) + w*math.cos(Alpha))
+        print math.sin(Alpha)
+        h_n=int(-w*math.sin(Alpha) + h*math.cos(Alpha))
+        w_n=int(-h*math.sin(Alpha) + w*math.cos(Alpha))
 
         print w_n, h_n
         st.find("width").text=str(w_n)
@@ -68,13 +90,17 @@ def rotate_xml(filename, Alpha, w,h):
         #x1_n=int((x1*math.cos(Alpha)-y1*math.sin(Alpha)) - (w_n-y2*(1-math.tan(Alpha)))*math.sin(Alpha))
         #x2_n=x1_n+int((x2-x1)*math.cos(Alpha)+(y2-y1)*math.sin(Alpha))
         x1_n=x1_t - int((h_n-y1)*math.sin(Alpha)) + int(y2*math.sin(Alpha))
-        x2_n=x1_n+ int((x2-x1)*math.cos(Alpha) -(y2-y1)*math.sin(Alpha)) +6
+        x2_n=x1_n+ int((x2-x1)*math.cos(Alpha) -(y2-y1)*math.sin(Alpha))
+        
+
         y1_n=y1_t #- int((w_n-x2)*math.sin(Alpha)) - int(x1*math.tan(Alpha))
         y2_n=y2_t #- int((w_n-x2)*math.sin(Alpha)) - int(x1*math.tan(Alpha))
-        # if(y2_n>w_n):
-        #     y2_n=w_n
-        # if(x2_n>h_n):
-        #     x2_n=h_n
+        if(y2_n>h_n):
+             y2_n=h_n
+        if(x2_n>w_n):
+             x2_n=w_n
+        if x2_n <= x1_n or y2_n<=y1_n:
+            print filename
         bbox.find('xmin').text=str(x1_n)
         bbox.find('ymin').text=str(y1_n)
         bbox.find('xmax').text=str(x2_n)
@@ -82,8 +108,10 @@ def rotate_xml(filename, Alpha, w,h):
         tree.write(filename)
 
 
-file_image="test1.png"
-rotate_file_image(file_image, 3)
+#file_image="test1.png"
+#rotate_file_image(file_image, 3)
 
 
-#rotate_xml("test2.xml", 5)
+for filepath in readFileImages(IMAGES_FOLDER):
+    for j in range(2, 6):
+        rotate_file_image(filepath,j)

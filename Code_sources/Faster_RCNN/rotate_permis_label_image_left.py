@@ -4,8 +4,27 @@ import math
 import cv2
 import numpy as numpy
 import imutils
-
+import os
+import glob
 from shutil import copyfile
+
+IMAGES_FOLDER="a/"
+def read_folder(fo):
+    ls=[]
+    for dirpath, dirnames, filenames in os.walk(fo):
+        for fp in filenames:
+            ls.append(fp)
+    return ls
+
+def readFileImages(strFolderName):
+    print strFolderName
+    image_list = []
+    st=strFolderName+"*.png"
+    for filename in glob.glob(st): #assuming gif
+        image_list.append(filename)
+    return image_list
+
+print readFileImages(IMAGES_FOLDER)
 
 def copy_file(file_input, file_output):
     copyfile(file_input, file_output)
@@ -14,10 +33,13 @@ def rotate_file_image(filename, Alpha):
     img=cv2.imread(filename,1)
     dst=imutils.rotate_bound(img,Alpha)
     w_n,h_n,d_n=dst.shape
-    file_rotate_image=str(Alpha)+filename
+    dirname= os.path.dirname(filename)
+    filename=os.path.basename(filename)
+    file_rotate_image=os.path.join(dirname, str(Alpha)+filename)
     Alpha=-1*Alpha
     cv2.imwrite(file_rotate_image,dst)
-    file_annotate=filename.replace("png", "xml")
+
+    file_annotate=os.path.join(dirname, filename).replace("png", "xml")
     file_annotate_rotate=file_rotate_image.replace("png", "xml")
     copy_file(file_annotate,file_annotate_rotate)
     rotate_xml(file_annotate_rotate, Alpha,w_n, h_n)
@@ -82,8 +104,12 @@ def rotate_xml(filename, Alpha, w,h):
         tree.write(filename)
 
 
-file_image="test3.png"
-rotate_file_image(file_image, -2)
+#file_image="test3.png"
+#rotate_file_image(file_image, -2)
+
+for filepath in readFileImages(IMAGES_FOLDER):
+    for j in range(-3, -1):
+        rotate_file_image(filepath,j)
 
 
 #rotate_xml("test2.xml", 5)
