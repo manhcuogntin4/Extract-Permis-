@@ -19,7 +19,7 @@ from fast_rcnn.config import cfg
 from fast_rcnn.test import im_detect
 from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
-from ocr.clstm_permis import clstm_ocr_permis, clstm_ocr_permis_parallel, clstm_ocr_calib_permis
+from ocr.clstm_permis import clstm_ocr_permis, clstm_ocr_permis_parallel, clstm_ocr_calib_permis, checkdate
 #from ocr.clstm_permis import clstm_ocr_calib_carte_grise
 import matplotlib.pyplot as plt
 import numpy as np
@@ -54,7 +54,7 @@ NETS = {'vgg16': ('VGG16',
         'inria': ('INRIA_Person',
                   'INRIA_Person_faster_rcnn_final.caffemodel'),
         'axa': ('axa_poc_permis',
-                  'axa_permis_short.caffemodel')}
+                  'permis_shortdate_shortname.caffemodel')}
 UPLOAD_FOLDER = '/tmp/caffe_demos_uploads'
 
 def vis_detections(im, class_name, dets, thresh=0.5):
@@ -110,7 +110,7 @@ def extract_roi(class_name, dets, thresh=0.5):
         width= bbox[2] - bbox[0]
         # if class_name == 'nom':
 
-        #     bbox[0] -= 0.05 * hight
+        bbox[0] -= 0.2 * hight
         #     bbox[1] -= 0.05 * hight
         #     bbox[2] += 0.6 * (bbox[2] - bbox[0])
         #     bbox[3] += 0.05 * hight
@@ -121,21 +121,21 @@ def extract_roi(class_name, dets, thresh=0.5):
             #     bbox[0]+=0.3*width
             bbox[1] += 0.05 * hight
             bbox[2] += 0.05  * (bbox[2] - bbox[0])
-            bbox[3] += 0.05 * hight
+            bbox[3] += 0.07 * hight
 
         elif class_name == 'prenom':
             # if(width>3*hight):
             #     bbox[0] += 1.7 * hight
             # else:
             #     bbox[0]+=0.3*width
-            bbox[1] -=  0.05* hight
+            bbox[1] -=  0.07* hight
             bbox[2] += 0.05  * (bbox[2] - bbox[0])
             bbox[3] += 0.05 * hight
         else:
-            bbox[1] -=  0.05* hight
+            bbox[1] -=  0.07* hight
             #bbox[2] += 0.07  * (bbox[2] - bbox[0])
             bbox[2] += 0.10  * (bbox[2] - bbox[0])
-            bbox[3] += 0.05 * hight
+            bbox[3] += 0.07 * hight
     
 
 
@@ -369,6 +369,7 @@ def detect_permis_short(filename):
 def calib_roi(im,bbx,cls):
     #txt, prob = clstm_ocr_carte_grise(im[bbx[1]:bbx[3], bbx[0]:bbx[2]], cls=='lieu')
     txt, prob = clstm_ocr_permis(im[bbx[1]:bbx[3], bbx[0]:bbx[2]], cls)
+    print txt, prob
     txt_temp,prob_temp="",0
     cv2.setNumThreads(0)
     h = np.size(im, 0)
@@ -385,7 +386,7 @@ def calib_roi(im,bbx,cls):
                 #         txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]+3*i*math.pow( -1, j)], cls)
                 if (bbx[1]>15) and ( bbx[3] >15) and (bbx[2]>9) and (bbx[0]>9):
                     txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]-3*i*math.pow( -1, j)], cls)
-                    if(prob<prob_temp) and len(txt_temp)>=2:
+                    if(prob<prob_temp) and len(txt_temp)>=2 and checkdate(txt_temp,cls):
 	                    txt=txt_temp
 	                    prob=prob_temp
     return txt, prob

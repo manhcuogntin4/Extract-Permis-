@@ -19,7 +19,7 @@ from fast_rcnn.config import cfg
 from fast_rcnn.test import im_detect
 from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
-from ocr.clstm_permis import clstm_ocr_permis, clstm_ocr_permis_parallel, clstm_ocr_calib_permis
+from ocr.clstm_permis import clstm_ocr_permis, clstm_ocr_permis_parallel, clstm_ocr_calib_permis, checkdate
 #from ocr.clstm_permis import clstm_ocr_calib_carte_grise
 import matplotlib.pyplot as plt
 import numpy as np
@@ -143,8 +143,16 @@ def extract_roi(class_name, dets, thresh=0.5):
             bbox[1] -=  0.05* hight
             bbox[2] += 0.05  * (bbox[2] - bbox[0])
             bbox[3] += 0.05 * hight
+
+        elif class_name=="date_naissance":
+        	bbox[0]+=0.6*width 
+        	bbox[1] -=  0.05* hight
+	        bbox[2] += 0.17  * (bbox[2] - bbox[0])
+	        bbox[3] += 0.05 * hight
+
+
         else:
-            if class_name=='date_permis_A3' or class_name=='date_permis_A2' or class_name=='date_naissance':
+            if class_name=='date_permis_A3' or class_name=='date_permis_A2':
                 if(width>3*hight):
                     bbox[0] += 0.6 * width
                 else:
@@ -215,7 +223,7 @@ def demo_parallel(net, image_name):
         dets = dets[keep, :]
         tmp = extract_roi(cls, dets, thresh=CONF_THRESH)
         print len(tmp), cls
-        if len(tmp) > 0 and cls=='date_naissance':#or cls=='ville' or cls=='marque') :
+        if len(tmp) > 0: # and cls=="date_permis_B":#or cls=='ville' or cls=='marque') :
             bbx = tmp[0]  # TODO: Find the zone with greatest probability
             if(bbx[0]<0):
                 bbx[0]=0
@@ -393,7 +401,7 @@ def detect_permis(filename):
 
 def calib_roi(im,bbx,cls):
     #txt, prob = clstm_ocr_carte_grise(im[bbx[1]:bbx[3], bbx[0]:bbx[2]], cls=='lieu')
-    txt, prob = clstm_ocr_permis_parallel(im[bbx[1]:bbx[3], bbx[0]:bbx[2]], cls)
+    txt, prob = clstm_ocr_permis(im[bbx[1]:bbx[3], bbx[0]:bbx[2]], cls)
     txt_temp,prob_temp="",0
     cv2.setNumThreads(0)
     h = np.size(im, 0)
@@ -410,7 +418,7 @@ def calib_roi(im,bbx,cls):
                 #         txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]+3*i*math.pow( -1, j)], cls)
                 if (bbx[1]>15) and ( bbx[3] >15) and (bbx[2]>9) and (bbx[0]>9):
                     txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]-3*i*math.pow( -1, j)], cls)
-                    if(prob<prob_temp) and len(txt_temp)>=2:
+                    if(prob<prob_temp) and len(txt_temp)>=2 and checkdate(txt_temp,cls):
 	                    txt=txt_temp
 	                    prob=prob_temp
     return txt, prob
