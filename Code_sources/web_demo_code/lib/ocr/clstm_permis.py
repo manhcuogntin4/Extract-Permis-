@@ -78,7 +78,7 @@ def extract_text(img_path, model_path):
 	prob = 1
 	prob1=1
 	index = 0
-	if(text.strip().find(u' ') != -1 and (text.strip().index(u' ') <= 2)):
+	if(text.strip().find(u' ') != -1 and (text.strip().index(u' ') <= 3)):
 		if(len(text)>text.index(u' ')+1):		
 			index = text.index(u' ')+1
 	for ind, j in enumerate(chars):
@@ -139,7 +139,7 @@ def clstm_ocr_permis(img, cls="nom"):
 	cropY=6
 	cropWidth=1
 	cropHeight=4
-	if cls=="date_naissance":
+	if cls=="date_naissance" or cls=="date_permis_B1":
 		cropHeight=6
 		cropWidth=2
 	if cls=="nom":
@@ -147,7 +147,15 @@ def clstm_ocr_permis(img, cls="nom"):
 		cropY=4
 	if cls=="prenom":
 		cropX=6
-		cropY=4
+		cropHeight=6
+		#cropWidth=2
+
+
+	if cls in ['date_naissance', 'date_permis_A1', \
+                         'date_permis_A2', 'date_permis_A3', 'date_permis_B1', 'date_permis_B']:
+		if len(ocr_result)!=10:
+			#print "date_naissance"
+			maxPro=0	
 
 	for i in range (0,cropX,1):
 		for j in range (0,cropY):
@@ -160,6 +168,9 @@ def clstm_ocr_permis(img, cls="nom"):
 						ocr_result = text
 					if (maxPro > 0.95) and (len(text) >= 2):
 					 	break	
+					# else:
+					# 	if (maxPro > 0.97):
+					# 		break
 	return (ocr_result, maxPro)
 
 def checkdate(text, cls="nom"):
@@ -202,34 +213,35 @@ def clstm_ocr_permis_parallel(img, cls="nom"):
 	cropY=6
 	cropWidth=1
 	cropHeight=4
-	if cls=="date_naissance":
+	if cls=="date_naissance" or cls=="date_permis_B1":
 		cropHeight=6
-		cropWidth=2
+		#cropWidth=2
 	if cls=="nom":
 		cropX=6
 		cropY=4
 	if cls=="prenom":
 		cropX=6
-		cropY=4
+		cropHeight=6
 	q={}
 	p={}
 	txt={}
 	prob={}
 	for j in range (0,cropY):
 		q[j] = multiprocessing.Queue()
-		p[j] = multiprocessing.Process(target=calib_clstm_height_low_queue, args=(cropX,j,cropWidth,cropHeight,image,model_path,ocr_result, maxPro, q[j]))
+		p[j] = multiprocessing.Process(target=calib_clstm_height_low_queue, args=(cropX,j,cropWidth,cropHeight,image,model_path,ocr_result, maxPro, cls, q[j]))
 		p[j].start()
 		#xt[j],prob[j]=q[j].get()
 		# if(q[j].empty()==False):
 		# 	txt[j],prob[j]=q[j].get()
 		# else:
 		# 	txt[j],prob[j]="",0
+
+	for j in range (0,cropY):
+		txt[j],prob[j]=q[j].get()
+	
 	for j in range (0,cropY):
 		p[j].join()
 	
-	for j in range (0,cropY):
-		txt[j],prob[j]=q[j].get()
-
 		
 	for j in range (0,cropY):
 		if(prob[j]>maxPro):
@@ -283,7 +295,7 @@ def clstm_ocr_calib_permis(img, cls="nom"):
 		return ("",0)
 	return (ocr_result, maxPro)
 
-def calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n):
+def calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n, cls):
 	maxPro=maxPro_n
 	ocr_result=ocr_result_n
 	for i in range (0,cropX,1):
@@ -292,18 +304,18 @@ def calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, o
 					img_path = crop_image(image, 4*i, 3*y, 4*k, 3*h)
 					text, prob, index = extract_text(img_path, model_path)
 					os.remove(img_path)
-					if(prob > maxPro) and (len(text)>=2):
+					if(prob > maxPro) and (len(text)>=2) and checkdate(text, cls):
 						maxPro = prob
 						ocr_result = text
-					if (maxPro > 0.95) and (len(text) >= 2):
+					if (maxPro > 0.95) and (len(text) >= 2) and checkdate(text, cls):
 						break
 	return ocr_result, maxPro
 
 
 
 
-def calib_clstm_height_low_queue(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n, q):
-	q.put(calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n))
+def calib_clstm_height_low_queue(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n, cls, q):
+	q.put(calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, cls, maxPro_n))
 
 if __name__ == '__main__':
 	#filename = os.path.join(this_dir, 'demo', 'prenom0.png')
