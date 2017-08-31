@@ -18,10 +18,12 @@ import exifutil
 from tools.axademo import detect_cni
 from tools.axademo_carte_grise import detect_carte_grise
 from tools.axademo_permis import detect_permis
+from tools.axademo_permis_short import detect_permis_short
 from flask import Flask, redirect, url_for, request, session, abort, render_template, flash
 import os
 import caffe
 import glob
+import copy
 #Multiprocess
 from multiprocessing import Pool   
 import multiprocessing.pool
@@ -42,7 +44,8 @@ sys.setdefaultencoding("ISO-8859-1")
 
 #Process image with textcleaner
 import subprocess
-
+# Process similar
+from difflib import SequenceMatcher
 
 
 #CAFFE_ROOT = '/home/haoming/Documents/caffe'
@@ -290,17 +293,25 @@ def classify_upload():
         logging.info('Extracting Region of Interest in permis...')
         #Apply textcleaner
         file_out="out.png"
-        rc=subprocess.check_call(["./textcleaner", filename, file_out])
+        original_img = cv2.imread(filename)
+        clone_img = copy.copy(original_img)
+        cv2.imwrite(file_out, clone_img)
+        #rc=subprocess.check_call(["./textcleaner", filename, file_out])
         #Apply parallel
         #p = Pool(8)
         #multiprocessing.set_start_method('spawn')
         #cv2.setNumThreads(0)
         p=MyPool(8)
-        res =p.map(detect_permis,[filename, filename])
+        #res =p.map(detect_permis_short,[filename, filename])
+        res =p.apply_async(detect_permis,(filename,))
+        res1 =p.apply_async(detect_permis_short,(file_out,))
+        #res1=p.map_async(detect_permis_short,file_out)
         p.close()
         p.join()
-        cnis, preproc_time, roi_file_images=res[0]
-        cnis_tmp, preproc_time_tmp, roi_file_images_tmp=res[1] 
+        cnis, preproc_time, roi_file_images=res.get()
+        cnis_tmp, preproc_time_tmp, roi_file_images_tmp=res1.get() 
+        #print "cnis", cnis
+        #print "cnis_tmp",cnis_tmp
         #cnis, preproc_time, roi_file_images = detect_carte_grise(filename) # img, res
 
         #Process image with textcleaner
@@ -324,10 +335,18 @@ def classify_upload():
                 text_info[cls] = (res[cls][1], '%.3f' % (res[cls][2]))   # (content, prob)
                 
                 # Take the process of textcleaner if the result not good
-                if(res[cls][2]<0.8) and (cls in res_tmp[0]):
-                    print "not correct"
-                    if (res_tmp[0][cls][2]>res[cls][2]):
+                #if(res[cls][2]<0.8 or (cls=="date_permis_B" and len(res[cls][1])!=10)) and (cls in res_tmp[0]):
+                if check(res[cls][2], cls, res[cls][1]) and (cls in res_tmp[0]):
+                    if cls=="nom" or cls=="prenom" or len(res[cls][1])==10:
+                        if (res_tmp[0][cls][2]>res[cls][2]) and res_tmp[0][cls][2]>0.8:
+                            text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
+                    elif cls=="date_naissance" and similar(res_tmp[0][cls][1], res[cls][1])>0.8 and (res_tmp[0][cls][2]>res[cls][2]):
                         text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
+                    else:
+                        print "date not correct"
+                        text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
+
+                    
                 # if cls=="nom":
                 #     __isnom__=True
                 # if cls=="prenom":
@@ -612,6 +631,18 @@ def classify_update():
         
     return flask.render_template('admin.html', has_result=False)
 
+def check(prob, cls, txt):
+    if ((cls=="nom" or cls=="prenom") and prob<0.6) or (cls in ['date_naissance', 'date_permis_A1', \
+                         'date_permis_A2', 'date_permis_A3', 'date_permis_B1', 'date_permis_B'] and prob<0.8 ) or \
+    ( cls in ['date_naissance', 'date_permis_A1', \
+                         'date_permis_A2', 'date_permis_A3', 'date_permis_B1', 'date_permis_B'] and len(txt)!=10)\
+    or (cls=="date_naissance" and prob >0.9 ):
+        return True
+    else:
+        return False
+
+def similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
 
 def hasXpath(xpath):
     try:
