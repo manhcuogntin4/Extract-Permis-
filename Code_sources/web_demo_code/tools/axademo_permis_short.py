@@ -19,7 +19,7 @@ from fast_rcnn.config import cfg
 from fast_rcnn.test import im_detect
 from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
-from ocr.clstm_permis import clstm_ocr_permis, clstm_ocr_permis_parallel, clstm_ocr_calib_permis, checkdate
+from ocr.clstm_permis import clstm_ocr_permis, clstm_ocr_permis_parallel, clstm_ocr_calib_permis, checkdate, checkdateregex, get_similar
 #from ocr.clstm_permis import clstm_ocr_calib_carte_grise
 import matplotlib.pyplot as plt
 import numpy as np
@@ -376,7 +376,7 @@ def calib_roi(im,bbx,cls):
     w = np.size(im, 1)
     if(prob<0.99):
         for i in range(1,4):    
-            for j in range(1,4):
+            for j in range(1,3):
                 #txt_temp,prob_temp=clstm_ocr_calib_carte_grise(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]+5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]+3*i*math.pow( -1, j)], cls=='lieu')
                 # if(cls=="numero" or cls=="marque" or cls=="type_mine"):
                 #     txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]+3*i*math.pow( -1, j)], cls)
@@ -386,9 +386,14 @@ def calib_roi(im,bbx,cls):
                 #         txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]+3*i*math.pow( -1, j)], cls)
                 if (bbx[1]>15) and ( bbx[3] >15) and (bbx[2]>9) and (bbx[0]>9):
                     txt_temp,prob_temp=clstm_ocr_calib_permis(im[bbx[1]-5*i*math.pow( -1, j):bbx[3]-5*i*math.pow( -1, j), bbx[0]-3*i*math.pow( -1, j):bbx[2]-3*i*math.pow( -1, j)], cls)
-                    if(prob<prob_temp) and len(txt_temp)>=2 and checkdate(txt_temp,cls):
+                    if(prob<prob_temp) and len(txt_temp)>=2 and checkdateregex(txt_temp,cls):
 	                    txt=txt_temp
 	                    prob=prob_temp
+
+    if(prob<0.8 and cls=="prenom" and len(get_similar(txt,"prenom",0.7))>0 ):
+        if abs(len(get_similar(txt,"prenom",0.7))-len(txt))<=1: 
+            txt=txt+ ":" +get_similar(txt,"prenom",0.7)
+
     return txt, prob
 
 def main():
