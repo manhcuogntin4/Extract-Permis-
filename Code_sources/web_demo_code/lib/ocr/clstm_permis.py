@@ -16,28 +16,47 @@ from multiprocessing import Manager
 from functools import partial
 import multiprocessing.pool
 import itertools
-
-
+import distance
+#regex
+import re
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
 CACHE_FOLDER = '/tmp/caffe_demos_uploads/cache'
 this_dir = os.path.dirname(__file__)
+def distance_string(s1, s2):
+    """Calculate the Hamming distance between two bit strings"""
+    # len(s1) == len(s2)
+    return distance.levenshtein(s1, s2)
 
-def get_similar(str_verify, cls="ville", score=0.7):
+def get_similar(str_verify, cls="prenom", score=0.5):
 	words = []
 	if not os.path.exists(CACHE_FOLDER):
 		os.makedirs(CACHE_FOLDER)
-	if(isLieu):
-		lieu_path=os.path.join(this_dir, 'lieu.txt')	
+	if(cls=="prenom"):
+		prenom_path=os.path.join(this_dir, 'prenom_dict.txt')				
+		f=open(prenom_path,'r')
+		for line in f:
+			words.append(line.strip())
+		f.close()
+		ls_string=str_verify.strip().split()
+		str_out=""
+		for i in ls_string:
+			if i in words:
+				str_out+=i+" "
+			else:
+				simi=difflib.get_close_matches(i, words,1,score)
+				print score, simi
+				#print i
+				#print simi
+				if(simi and distance_string(i,simi[0])<=1):
+					str_out+=simi[0]+" "
+				else:
+					str_out+=i+" "
+		#return str_out.strip()
+		return str_out.strip()
 	else:
-		lieu_path=os.path.join(this_dir, 'nom.txt')			
-	f=open(lieu_path,'r')
-	for line in f:
-		words.append(line)
-	f.close()
-	simi=difflib.get_close_matches(str_verify, words,5,score)
-	return simi
+		return str_verify
 
 def convert_to_binary(img):
 	if (img.shape >= 3):
@@ -47,7 +66,7 @@ def convert_to_binary(img):
 	width = np.size(img, 1)
 	height=60
 	r,c=img.shape[:2]
-	print (height*c)/r, imgBinary.size
+	#print (height*c)/r, imgBinary.size
 	res = cv2.resize(imgBinary,((int)(height*c)/r, height), interpolation = cv2.INTER_CUBIC)
 	res = cv2.fastNlMeansDenoising(res,20, 7, 21)
 	out_path = os.path.join(CACHE_FOLDER, str(os.getpid())+ "out.png")
@@ -118,11 +137,9 @@ def clstm_ocr_permis(img, cls="nom"):
 			os.chmod(CACHE_FOLDER, 0755)
 
 	if cls=="nom" or cls=="prenom":
-		print "nom prenom"
 		model_path = os.path.join(this_dir, 'model_nomprenom_permis_final.clstm')
 	
 	else:
-		print "date"
 		model_path = os.path.join(this_dir, 'model_date_permis.clstm')
 	if(img.size>0):
 		converted_image_path, image = convert_to_binary(img)
@@ -154,8 +171,9 @@ def clstm_ocr_permis(img, cls="nom"):
 	if cls in ['date_naissance', 'date_permis_A1', \
                          'date_permis_A2', 'date_permis_A3', 'date_permis_B1', 'date_permis_B']:
 		if len(ocr_result)!=10:
-			#print "date_naissance"
-			maxPro=0	
+			print "size not correct"
+			maxPro=0
+			print "maxPro before:", maxPro
 
 	for i in range (0,cropX,1):
 		for j in range (0,cropY):
@@ -163,7 +181,7 @@ def clstm_ocr_permis(img, cls="nom"):
 				for h in range (0, cropHeight):
 					img_path = crop_image(image, 4*i, 3*j, 4*k, 3*h)
 					text, prob, index = extract_text(img_path, model_path)
-					if(prob > maxPro) and (len(text)>=2) and checkdate(text, cls):
+					if(prob > maxPro) and (len(text)>=2) and checkdateregex(text, cls):
 						maxPro = prob
 						ocr_result = text
 					if (maxPro > 0.95) and (len(text) >= 2):
@@ -171,10 +189,18 @@ def clstm_ocr_permis(img, cls="nom"):
 					# else:
 					# 	if (maxPro > 0.97):
 					# 		break
+	print "maxPro after:", maxPro
 	return (ocr_result, maxPro)
 
 def checkdate(text, cls="nom"):
 	if cls=="nom" or cls=="prenom" or ( len(text)==10):
+		return True
+	else:
+		return False
+
+def checkdateregex(text, cls="nom"):
+	pattern = '^(0[1-9]|1\d|2\d|3[01])\/(0[1-9]|1[0-2])\/(19|20)\d{2}$|^\*{10}$'
+	if cls=="nom" or cls=="prenom" or bool(re.match(pattern, text)):
 		return True
 	else:
 		return False
@@ -275,18 +301,14 @@ def clstm_ocr_calib_permis(img, cls="nom"):
 	if not os.path.exists(CACHE_FOLDER):
 		os.makedirs(CACHE_FOLDER)
 	if cls=="nom" or cls=="prenom":
-		print "clstm_ocr_calib_permis"
 		#model_path = os.path.join(this_dir, 'model_nom_carte_grise_090317.clstm')
 		model_path = os.path.join(this_dir, 'model_nomprenom_permis_final.clstm')
 		#model_path = os.path.join(this_dir, 'model_nom_carte_grise_120317x3.clstm')
 	else:
-		print "date"
 		model_path = os.path.join(this_dir, 'model_date_permis.clstm')
 	ocr_result, maxPro="",0
 	if(img.size>0):
-		print "Covert " 
 		converted_image_path, image = convert_to_binary(img)
-		print "Covert pass"
 	#maxPro = 0
 	#ocr_result = ""
 		ocr_result, maxPro, index=extract_text(converted_image_path, model_path)
@@ -304,10 +326,10 @@ def calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, o
 					img_path = crop_image(image, 4*i, 3*y, 4*k, 3*h)
 					text, prob, index = extract_text(img_path, model_path)
 					os.remove(img_path)
-					if(prob > maxPro) and (len(text)>=2) and checkdate(text, cls):
+					if(prob > maxPro) and (len(text)>=2) and checkdateregex(text, cls):
 						maxPro = prob
 						ocr_result = text
-					if (maxPro > 0.95) and (len(text) >= 2) and checkdate(text, cls):
+					if (maxPro > 0.95) and (len(text) >= 2) and checkdateregex(text, cls):
 						break
 	return ocr_result, maxPro
 
@@ -315,7 +337,7 @@ def calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, o
 
 
 def calib_clstm_height_low_queue(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n, cls, q):
-	q.put(calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, cls, maxPro_n))
+	q.put(calib_clstm_height_low(cropX, y, cropWidth, cropHeight, image, model_path, ocr_result_n, maxPro_n, cls))
 
 if __name__ == '__main__':
 	#filename = os.path.join(this_dir, 'demo', 'prenom0.png')
