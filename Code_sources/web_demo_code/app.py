@@ -305,6 +305,8 @@ def classify_upload():
         #res =p.map(detect_permis_short,[filename, filename])
         res =p.apply_async(detect_permis,(filename,))
         res1 =p.apply_async(detect_permis_short,(file_out,))
+
+
         #res1=p.map_async(detect_permis_short,file_out)
         p.close()
         p.join()
@@ -319,7 +321,10 @@ def classify_upload():
         #cnis_tmp, preproc_time_tmp, roi_file_images_tmp = detect_carte_grise(file_out)
         res_tmp=[r for i,r,p in cnis_tmp]
         print "res_tmp:", res_tmp
-        #print "res:", res
+
+        res_long=[r for i,r,p in cnis]
+        print "restlong:", res_long
+
 
         #Combine the results of two process
 
@@ -330,32 +335,22 @@ def classify_upload():
             images.append(img)
             bbox, text_info = [], {}
             for cls in res:
-                # print cls, res[cls]
                 bbox.append(res[cls][0])
                 text_info[cls] = (res[cls][1], '%.3f' % (res[cls][2]))   # (content, prob)
-                
-                # Take the process of textcleaner if the result not good
-                #if(res[cls][2]<0.8 or (cls=="date_permis_B" and len(res[cls][1])!=10)) and (cls in res_tmp[0]):
                 if check(res[cls][2], cls, res[cls][1]) and (cls in res_tmp[0]):
+                #if (cls in res_tmp[0]):
                     if cls=="nom" or cls=="prenom" or len(res[cls][1])==10:
-                        if (res_tmp[0][cls][2]>res[cls][2]) and res_tmp[0][cls][2]>0.8:
-                            text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
+                        if (res_tmp[0][cls][2]>res[cls][2]) and ( res_tmp[0][cls][2]>0.8 or len(res_tmp[0][cls][1])>=len(res[cls][1])):
+                        	print "change"
+                        	text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
                     elif cls=="date_naissance" and similar(res_tmp[0][cls][1], res[cls][1])>0.8 and (res_tmp[0][cls][2]>res[cls][2]):
                         text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
                     else:
-                        print "date not correct"
                         text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
-
-                    
-                # if cls=="nom":
-                #     __isnom__=True
-                # if cls=="prenom":
-                #     __isprenom__=True
-                # if cls=="lieu":
-                #     __islieu__=True
-                # if cls=="epouse":
-                #     __isepouse__=True
-
+                elif cls in res_tmp[0]:
+                	if (cls=="nom" or cls=="prenom") and res_tmp[0][cls][2]>0.9 and res[cls][1] in res_tmp[0][cls][1] :
+                		print "OK here"
+                		text_info[cls] = (res_tmp[0][cls][1], '%.3f' % (res_tmp[0][cls][2]))
             bboxes.append(bbox)
             texts.append(text_info)
 
